@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StreamSync</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e2e;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --primary: #0ea5e9;
+      --green: #22c55e;
+      --red: #ef4444;
+      --radius: 10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .logo {
+      width: 36px;
+      height: 36px;
+      background: var(--primary);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    h1 { font-size: 20px; font-weight: 700; }
+    h1 span { color: var(--primary); }
+
+    .subtitle { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 960px;
+    }
+
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* Status card */
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .dot.live { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .dot.idle { background: var(--muted); }
+
+    .status-label { font-size: 15px; font-weight: 600; }
+    .status-since { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+    .obs-info {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      margin-top: 14px;
+    }
+
+    .obs-info p { font-size: 11px; color: var(--muted); margin-bottom: 6px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+    .obs-info code { font-family: 'Courier New', monospace; font-size: 13px; color: var(--primary); }
+
+    /* Platform cards */
+    .platform-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: border-color 0.15s;
+    }
+
+    .platform-card.active { border-color: rgba(34,197,94,0.4); }
+    .platform-card.disabled { opacity: 0.5; }
+
+    .platform-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .platform-name { font-weight: 600; flex: 1; }
+    .platform-status { font-size: 12px; color: var(--muted); }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .badge.live { background: rgba(34,197,94,0.15); color: var(--green); }
+    .badge.idle { background: rgba(100,116,139,0.15); color: var(--muted); }
+    .badge.no-key { background: rgba(239,68,68,0.15); color: var(--red); }
+
+    .toggle-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 5px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .toggle-btn:hover { background: var(--border); }
+    .toggle-btn.enabled { border-color: var(--green); color: var(--green); }
+
+    /* Logs */
+    .logs-card {
+      max-width: 960px;
+      margin-top: 16px;
+    }
+
+    .log-box {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      height: 200px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #94a3b8;
+    }
+
+    .log-box p { white-space: pre-wrap; word-break: break-all; }
+
+    /* Stop button */
+    .stop-btn {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: var(--red);
+      border-radius: 6px;
+      padding: 6px 16px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: background 0.15s;
+      margin-top: 12px;
+    }
+
+    .stop-btn:hover { background: rgba(239,68,68,0.2); }
+    .stop-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .platforms-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      max-width: 960px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 640px) { .platforms-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">⚡</div>
+    <div>
+      <h1>Stream<span>Sync</span></h1>
+      <p class="subtitle">Multi-platform relay — one stream key, everywhere</p>
+    </div>
+  </header>
+
+  <!-- Status card -->
+  <div class="grid" style="margin-bottom:16px;">
+    <div class="card">
+      <p class="card-title">Relay Status</p>
+      <div class="status-row">
+        <div class="dot" id="statusDot"></div>
+        <div>
+          <p class="status-label" id="statusLabel">Loading…</p>
+          <p class="status-since" id="statusSince"></p>
+        </div>
+      </div>
+      <div class="obs-info">
+        <p>OBS RTMP Server URL</p>
+        <code id="rtmpUrl">rtmp://&lt;your-server-ip&gt;:1935/live</code>
+        <p style="margin-top:8px;">Stream Key (any value, e.g.)</p>
+        <code>stream</code>
+      </div>
+      <button class="stop-btn" id="stopBtn" onclick="stopRelay()" disabled>Stop Relay</button>
+    </div>
+  </div>
+
+  <!-- Platform toggles -->
+  <div class="platforms-grid" id="platformsGrid"></div>
+
+  <!-- Logs -->
+  <div class="card logs-card">
+    <p class="card-title">Server Log</p>
+    <div class="log-box" id="logBox"></div>
+  </div>
+
+  <script>
+    let prevLogs = [];
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        renderStatus(data);
+      } catch (e) {
+        document.getElementById('statusLabel').textContent = 'Cannot reach server';
+      }
+    }
+
+    function renderStatus(data) {
+      const { relay, platforms } = data;
+
+      // Status dot
+      const dot = document.getElementById('statusDot');
+      const label = document.getElementById('statusLabel');
+      const since = document.getElementById('statusSince');
+      const stopBtn = document.getElementById('stopBtn');
+
+      if (relay.active) {
+        dot.className = 'dot live';
+        label.textContent = 'Live — relay active';
+        since.textContent = relay.startedAt ? `Since ${new Date(relay.startedAt).toLocaleTimeString()}` : '';
+        stopBtn.disabled = false;
+      } else {
+        dot.className = 'dot idle';
+        label.textContent = 'Idle — waiting for OBS';
+        since.textContent = '';
+        stopBtn.disabled = true;
+      }
+
+      // Set OBS URL hint from current origin
+      const host = window.location.hostname;
+      document.getElementById('rtmpUrl').textContent = `rtmp://${host}:1935/live`;
+
+      // Platform cards
+      const grid = document.getElementById('platformsGrid');
+      grid.innerHTML = '';
+
+      for (const p of platforms) {
+        const isRelaying = relay.active && relay.platforms.includes(p.id);
+        const card = document.createElement('div');
+        card.className = 'platform-card' + (isRelaying ? ' active' : '') + (!p.enabled ? ' disabled' : '');
+
+        let badge = '';
+        if (!p.configured) badge = '<span class="badge no-key">No Key</span>';
+        else if (isRelaying) badge = '<span class="badge live">Live</span>';
+        else badge = '<span class="badge idle">Idle</span>';
+
+        card.innerHTML = `
+          <div class="platform-dot" style="background:${p.color};box-shadow:${isRelaying ? `0 0 8px ${p.color}` : 'none'}"></div>
+          <div style="flex:1">
+            <p class="platform-name">${p.name}</p>
+            <p class="platform-status">${p.configured ? (p.enabled ? 'Enabled' : 'Disabled') : 'Stream key not set'}</p>
+          </div>
+          ${badge}
+          <button class="toggle-btn ${p.enabled ? 'enabled' : ''}" onclick="togglePlatform('${p.id}')">
+            ${p.enabled ? 'ON' : 'OFF'}
+          </button>
+        `;
+        grid.appendChild(card);
+      }
+
+      // Logs
+      if (relay.logs && relay.logs.length !== prevLogs.length) {
+        prevLogs = relay.logs;
+        const box = document.getElementById('logBox');
+        box.innerHTML = relay.logs.map(l => `<p>${l}</p>`).join('');
+        box.scrollTop = box.scrollHeight;
+      }
+    }
+
+    async function togglePlatform(id) {
+      await fetch(`/api/platforms/${id}/toggle`, { method: 'POST' });
+      fetchStatus();
+    }
+
+    async function stopRelay() {
+      await fetch('/api/relay/stop', { method: 'POST' });
+      fetchStatus();
+    }
+
+    fetchStatus();
+    setInterval(fetchStatus, 2000);
+  </script>
+</body>
+</html>

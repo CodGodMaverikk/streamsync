@@ -1,0 +1,11 @@
+services:
+  streamsync:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "1935:1935"     # RTMP — OBS connects here
+      - "3001:3001"     # Dashboard
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production

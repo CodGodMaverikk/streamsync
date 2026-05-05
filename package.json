@@ -1,0 +1,14 @@
+{
+  "name": "streamsync",
+  "version": "1.0.0",
+  "description": "Multi-platform RTMP relay — one OBS stream key to Tweak, Twitch, YouTube, TikTok",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "node-media-server": "^2.7.0"
+  }
+}
