@@ -10,12 +10,14 @@
     :root {
       --bg: #0a0a0f;
       --surface: #12121a;
+      --surface2: #1a1a24;
       --border: #1e1e2e;
       --text: #e2e8f0;
       --muted: #64748b;
       --primary: #0ea5e9;
       --green: #22c55e;
       --red: #ef4444;
+      --yellow: #f59e0b;
       --radius: 10px;
     }
 
@@ -32,7 +34,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 32px;
+      margin-bottom: 28px;
     }
 
     .logo {
@@ -48,17 +50,16 @@
 
     h1 { font-size: 20px; font-weight: 700; }
     h1 span { color: var(--primary); }
-
     .subtitle { color: var(--muted); font-size: 13px; margin-top: 2px; }
 
-    .grid {
+    .layout {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 320px 1fr;
       gap: 16px;
-      max-width: 960px;
+      max-width: 1100px;
     }
 
-    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
 
     .card {
       background: var(--surface);
@@ -73,141 +74,160 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--muted);
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
-    /* Status card */
-    .status-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .dot.live { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    /* Status */
+    .status-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot.live { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
     .dot.idle { background: var(--muted); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
 
     .status-label { font-size: 15px; font-weight: 600; }
     .status-since { color: var(--muted); font-size: 12px; margin-top: 2px; }
 
-    .obs-info {
-      background: #0d1117;
+    .obs-box {
+      background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 6px;
       padding: 12px 14px;
-      margin-top: 14px;
+      margin-top: 4px;
     }
+    .obs-box p { font-size: 11px; color: var(--muted); margin-bottom: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+    .obs-box code { font-family: 'Courier New', monospace; font-size: 13px; color: var(--primary); word-break: break-all; }
 
-    .obs-info p { font-size: 11px; color: var(--muted); margin-bottom: 6px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-    .obs-info code { font-family: 'Courier New', monospace; font-size: 13px; color: var(--primary); }
-
-    /* Platform cards */
-    .platform-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px 20px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      transition: border-color 0.15s;
-    }
-
-    .platform-card.active { border-color: rgba(34,197,94,0.4); }
-    .platform-card.disabled { opacity: 0.5; }
-
-    .platform-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    .platform-name { font-weight: 600; flex: 1; }
-    .platform-status { font-size: 12px; color: var(--muted); }
-
-    .badge {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      padding: 2px 7px;
-      border-radius: 4px;
-      text-transform: uppercase;
-    }
-
-    .badge.live { background: rgba(34,197,94,0.15); color: var(--green); }
-    .badge.idle { background: rgba(100,116,139,0.15); color: var(--muted); }
-    .badge.no-key { background: rgba(239,68,68,0.15); color: var(--red); }
-
-    .toggle-btn {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-      border-radius: 6px;
-      padding: 5px 12px;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 600;
-      transition: background 0.15s, border-color 0.15s;
-    }
-
-    .toggle-btn:hover { background: var(--border); }
-    .toggle-btn.enabled { border-color: var(--green); color: var(--green); }
-
-    /* Logs */
-    .logs-card {
-      max-width: 960px;
-      margin-top: 16px;
-    }
-
-    .log-box {
-      background: #0d1117;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px;
-      height: 200px;
-      overflow-y: auto;
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      line-height: 1.6;
-      color: #94a3b8;
-    }
-
-    .log-box p { white-space: pre-wrap; word-break: break-all; }
-
-    /* Stop button */
     .stop-btn {
+      width: 100%;
+      margin-top: 14px;
       background: rgba(239,68,68,0.1);
       border: 1px solid rgba(239,68,68,0.3);
       color: var(--red);
       border-radius: 6px;
-      padding: 6px 16px;
+      padding: 8px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 600;
       transition: background 0.15s;
-      margin-top: 12px;
+    }
+    .stop-btn:hover:not(:disabled) { background: rgba(239,68,68,0.2); }
+    .stop-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* Platforms */
+    .platform-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .platform-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .platform-card.relaying { border-color: rgba(34,197,94,0.35); }
+    .platform-card.disabled { opacity: 0.55; }
+
+    .platform-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
     }
 
-    .stop-btn:hover { background: rgba(239,68,68,0.2); }
-    .stop-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .platform-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 
-    .platforms-grid {
+    .platform-name { font-weight: 600; flex: 1; font-size: 13px; }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .badge.live { background: rgba(34,197,94,0.15); color: var(--green); }
+    .badge.idle { background: rgba(100,116,139,0.12); color: var(--muted); }
+    .badge.nokey { background: rgba(245,158,11,0.15); color: var(--yellow); }
+
+    .toggle-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 5px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 700;
+      transition: all 0.15s;
+    }
+    .toggle-btn.on { border-color: var(--green); color: var(--green); }
+    .toggle-btn:hover { background: var(--border); }
+
+    .key-row {
+      display: flex;
+      gap: 6px;
+      padding: 0 14px 12px;
+    }
+
+    .key-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 6px 10px;
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .key-input:focus { border-color: var(--primary); }
+    .key-input::placeholder { color: var(--muted); font-family: inherit; }
+
+    .save-btn {
+      background: var(--primary);
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    .save-btn:hover { opacity: 0.85; }
+    .save-btn.saved { background: var(--green); }
+
+    /* Logs */
+    .log-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      height: 220px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      color: #94a3b8;
+    }
+    .log-box p { white-space: pre-wrap; word-break: break-all; }
+    .log-box p.err { color: var(--red); }
+    .log-box p.warn { color: var(--yellow); }
+
+    .bottom-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      max-width: 960px;
-      margin-bottom: 16px;
+      gap: 16px;
+      max-width: 1100px;
+      margin-top: 16px;
     }
-
-    @media (max-width: 640px) { .platforms-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 760px) { .bottom-row { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -219,8 +239,8 @@
     </div>
   </header>
 
-  <!-- Status card -->
-  <div class="grid" style="margin-bottom:16px;">
+  <div class="layout">
+    <!-- Left: status + OBS info -->
     <div class="card">
       <p class="card-title">Relay Status</p>
       <div class="status-row">
@@ -230,42 +250,50 @@
           <p class="status-since" id="statusSince"></p>
         </div>
       </div>
-      <div class="obs-info">
-        <p>OBS RTMP Server URL</p>
-        <code id="rtmpUrl">rtmp://&lt;your-server-ip&gt;:1935/live</code>
-        <p style="margin-top:8px;">Stream Key (any value, e.g.)</p>
+
+      <div class="obs-box">
+        <p>OBS — RTMP Server URL</p>
+        <code id="rtmpUrl">rtmp://…:1935/live</code>
+        <p style="margin-top:10px;">OBS — Stream Key</p>
         <code>stream</code>
+        <p style="margin-top:10px;color:#475569;font-size:11px;">The stream key you give OBS can be anything — it's only used to identify the input here. Your actual platform keys are set below.</p>
       </div>
+
       <button class="stop-btn" id="stopBtn" onclick="stopRelay()" disabled>Stop Relay</button>
+    </div>
+
+    <!-- Right: platforms -->
+    <div class="card">
+      <p class="card-title">Platforms</p>
+      <div class="platform-list" id="platformList"></div>
     </div>
   </div>
 
-  <!-- Platform toggles -->
-  <div class="platforms-grid" id="platformsGrid"></div>
-
-  <!-- Logs -->
-  <div class="card logs-card">
-    <p class="card-title">Server Log</p>
-    <div class="log-box" id="logBox"></div>
+  <!-- Bottom: logs -->
+  <div class="bottom-row">
+    <div class="card" style="grid-column:1/-1">
+      <p class="card-title">Server Log</p>
+      <div class="log-box" id="logBox"></div>
+    </div>
   </div>
 
   <script>
-    let prevLogs = [];
+    let prevLogCount = 0;
 
     async function fetchStatus() {
       try {
         const res = await fetch('/api/status');
         const data = await res.json();
-        renderStatus(data);
-      } catch (e) {
+        render(data);
+      } catch {
         document.getElementById('statusLabel').textContent = 'Cannot reach server';
       }
     }
 
-    function renderStatus(data) {
+    function render(data) {
       const { relay, platforms } = data;
 
-      // Status dot
+      // Status
       const dot = document.getElementById('statusDot');
       const label = document.getElementById('statusLabel');
       const since = document.getElementById('statusSince');
@@ -283,43 +311,53 @@
         stopBtn.disabled = true;
       }
 
-      // Set OBS URL hint from current origin
-      const host = window.location.hostname;
-      document.getElementById('rtmpUrl').textContent = `rtmp://${host}:1935/live`;
+      document.getElementById('rtmpUrl').textContent = `rtmp://${window.location.hostname}:1935/live`;
 
-      // Platform cards
-      const grid = document.getElementById('platformsGrid');
-      grid.innerHTML = '';
-
+      // Platforms
+      const list = document.getElementById('platformList');
+      list.innerHTML = '';
       for (const p of platforms) {
         const isRelaying = relay.active && relay.platforms.includes(p.id);
         const card = document.createElement('div');
-        card.className = 'platform-card' + (isRelaying ? ' active' : '') + (!p.enabled ? ' disabled' : '');
+        card.className = 'platform-card' + (isRelaying ? ' relaying' : '') + (!p.enabled ? ' disabled' : '');
 
         let badge = '';
-        if (!p.configured) badge = '<span class="badge no-key">No Key</span>';
-        else if (isRelaying) badge = '<span class="badge live">Live</span>';
-        else badge = '<span class="badge idle">Idle</span>';
+        if (!p.configured)     badge = '<span class="badge nokey">No Key</span>';
+        else if (isRelaying)   badge = '<span class="badge live">Live</span>';
+        else                   badge = '<span class="badge idle">Idle</span>';
 
         card.innerHTML = `
-          <div class="platform-dot" style="background:${p.color};box-shadow:${isRelaying ? `0 0 8px ${p.color}` : 'none'}"></div>
-          <div style="flex:1">
-            <p class="platform-name">${p.name}</p>
-            <p class="platform-status">${p.configured ? (p.enabled ? 'Enabled' : 'Disabled') : 'Stream key not set'}</p>
+          <div class="platform-header">
+            <div class="platform-dot" style="background:${p.color};${isRelaying ? `box-shadow:0 0 7px ${p.color}` : ''}"></div>
+            <span class="platform-name">${p.name}</span>
+            ${badge}
+            <button class="toggle-btn ${p.enabled ? 'on' : ''}" onclick="togglePlatform('${p.id}')">
+              ${p.enabled ? 'ON' : 'OFF'}
+            </button>
           </div>
-          ${badge}
-          <button class="toggle-btn ${p.enabled ? 'enabled' : ''}" onclick="togglePlatform('${p.id}')">
-            ${p.enabled ? 'ON' : 'OFF'}
-          </button>
+          <div class="key-row">
+            <input
+              class="key-input"
+              id="key-${p.id}"
+              type="password"
+              placeholder="${p.configured ? '••••••••••••  (key saved)' : 'Paste stream key…'}"
+              autocomplete="off"
+            />
+            <button class="save-btn" id="savebtn-${p.id}" onclick="saveKey('${p.id}')">Save</button>
+          </div>
         `;
-        grid.appendChild(card);
+        list.appendChild(card);
       }
 
       // Logs
-      if (relay.logs && relay.logs.length !== prevLogs.length) {
-        prevLogs = relay.logs;
+      if (relay.logs && relay.logs.length !== prevLogCount) {
+        prevLogCount = relay.logs.length;
         const box = document.getElementById('logBox');
-        box.innerHTML = relay.logs.map(l => `<p>${l}</p>`).join('');
+        box.innerHTML = relay.logs.map(l => {
+          const cls = l.includes('ERROR') || l.includes('error') ? 'err'
+                    : l.includes('WARNING') || l.includes('warn') ? 'warn' : '';
+          return `<p class="${cls}">${l}</p>`;
+        }).join('');
         box.scrollTop = box.scrollHeight;
       }
     }
@@ -327,6 +365,28 @@
     async function togglePlatform(id) {
       await fetch(`/api/platforms/${id}/toggle`, { method: 'POST' });
       fetchStatus();
+    }
+
+    async function saveKey(id) {
+      const input = document.getElementById(`key-${id}`);
+      const btn = document.getElementById(`savebtn-${id}`);
+      const key = input.value.trim();
+      if (!key) return;
+
+      const res = await fetch(`/api/platforms/${id}/key`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      });
+
+      if (res.ok) {
+        btn.textContent = 'Saved!';
+        btn.classList.add('saved');
+        input.value = '';
+        input.placeholder = '•••••••••••• (key saved)';
+        setTimeout(() => { btn.textContent = 'Save'; btn.classList.remove('saved'); }, 2000);
+        fetchStatus();
+      }
     }
 
     async function stopRelay() {

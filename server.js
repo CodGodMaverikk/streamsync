@@ -5,37 +5,57 @@ const NodeMediaServer = require('node-media-server');
 const { spawn } = require('child_process');
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
+
+// ─── Persist runtime config (keys + enabled state) ───────────────────────────
+const CONFIG_FILE = path.join(__dirname, 'runtime-config.json');
+
+function loadRuntimeConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+  } catch {}
+  return {};
+}
+
+function saveRuntimeConfig() {
+  const out = {};
+  for (const [id, p] of Object.entries(platforms)) {
+    out[id] = { key: p.key, enabled: p.enabled };
+  }
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(out, null, 2));
+}
 
 // ─── Platform registry ───────────────────────────────────────────────────────
-// Each platform: rtmp base URL + stream key (from env) + enabled toggle
+const saved = loadRuntimeConfig();
+
 const platforms = {
   tweak: {
     name: 'Tweak',
     color: '#0ea5e9',
     rtmpUrl: process.env.TWEAK_RTMP_URL || 'rtmp://global-live.mux.com:5222/app',
-    key: process.env.TWEAK_STREAM_KEY || '',
-    enabled: process.env.TWEAK_ENABLED !== 'false',
+    key:     saved.tweak?.key     ?? process.env.TWEAK_STREAM_KEY  ?? '',
+    enabled: saved.tweak?.enabled ?? process.env.TWEAK_ENABLED !== 'false',
   },
   twitch: {
     name: 'Twitch',
     color: '#9147ff',
     rtmpUrl: process.env.TWITCH_RTMP_URL || 'rtmp://live.twitch.tv/app',
-    key: process.env.TWITCH_STREAM_KEY || '',
-    enabled: process.env.TWITCH_ENABLED !== 'false',
+    key:     saved.twitch?.key     ?? process.env.TWITCH_STREAM_KEY ?? '',
+    enabled: saved.twitch?.enabled ?? process.env.TWITCH_ENABLED !== 'false',
   },
   youtube: {
     name: 'YouTube',
     color: '#ff0000',
     rtmpUrl: process.env.YOUTUBE_RTMP_URL || 'rtmp://a.rtmp.youtube.com/live2',
-    key: process.env.YOUTUBE_STREAM_KEY || '',
-    enabled: process.env.YOUTUBE_ENABLED !== 'false',
+    key:     saved.youtube?.key     ?? process.env.YOUTUBE_STREAM_KEY ?? '',
+    enabled: saved.youtube?.enabled ?? process.env.YOUTUBE_ENABLED !== 'false',
   },
   tiktok: {
     name: 'TikTok',
-    color: '#010101',
+    color: '#69C9D0',
     rtmpUrl: process.env.TIKTOK_RTMP_URL || 'rtmp://rtmp-push.tiktok.com/live',
-    key: process.env.TIKTOK_STREAM_KEY || '',
-    enabled: process.env.TIKTOK_ENABLED !== 'false',
+    key:     saved.tiktok?.key     ?? process.env.TIKTOK_STREAM_KEY ?? '',
+    enabled: saved.tiktok?.enabled ?? process.env.TIKTOK_ENABLED !== 'false',
   },
 };
 
@@ -69,8 +89,8 @@ function startRelay(streamName) {
   log(`Starting relay for stream: ${streamName}`);
   log(`Targets: ${active.map(([, p]) => p.name).join(', ')}`);
 
-  // Build ffmpeg args: one -c copy -f flv <url> block per platform
-  const args = ['-re', '-i', inputUrl];
+  // No -re flag for live RTMP — that's only for file inputs
+  const args = ['-i', inputUrl];
   for (const [, p] of active) {
     args.push('-c', 'copy', '-f', 'flv', `${p.rtmpUrl}/${p.key}`);
   }
@@ -81,7 +101,6 @@ function startRelay(streamName) {
   relayStatus.platforms = active.map(([id]) => id);
 
   relayProcess.stderr.on('data', (chunk) => {
-    // ffmpeg writes progress to stderr — only log lines that aren't pure progress
     const line = chunk.toString().trim();
     if (line && !line.startsWith('frame=')) log(line.slice(0, 120));
   });
@@ -96,9 +115,7 @@ function startRelay(streamName) {
 
   relayProcess.on('error', (err) => {
     log(`FFmpeg error: ${err.message}`);
-    if (err.code === 'ENOENT') {
-      log('ERROR: ffmpeg not found — install it: apt install ffmpeg');
-    }
+    if (err.code === 'ENOENT') log('ERROR: ffmpeg not found — install it: apt install ffmpeg');
     relayStatus.active = false;
   });
 }
@@ -123,17 +140,15 @@ const nms = new NodeMediaServer({
     ping: 30,
     ping_timeout: 60,
   },
-  logType: 0, // suppress NMS internal logs — we handle our own
+  logType: 0,
 });
 
-// Fires when OBS connects and starts sending video
 nms.on('postPublish', (id, streamPath) => {
   const streamName = streamPath.split('/').pop();
   log(`Stream connected: ${streamPath}`);
   startRelay(streamName);
 });
 
-// Fires when OBS disconnects
 nms.on('donePublish', (id, streamPath) => {
   log(`Stream disconnected: ${streamPath}`);
   stopRelay();
@@ -142,12 +157,26 @@ nms.on('donePublish', (id, streamPath) => {
 nms.run();
 log(`RTMP ingest listening on port ${process.env.RTMP_PORT || 1935}`);
 
+// ─── Dashboard auth middleware ────────────────────────────────────────────────
+const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || '';
+
+function requireAuth(req, res, next) {
+  if (!DASHBOARD_PASSWORD) return next(); // no password set — open access
+  const auth = req.headers['authorization'] || '';
+  const [, encoded] = auth.split(' ');
+  if (!encoded) return res.set('WWW-Authenticate', 'Basic realm="StreamSync"').status(401).send('Unauthorized');
+  const [, password] = Buffer.from(encoded, 'base64').toString().split(':');
+  if (password !== DASHBOARD_PASSWORD) return res.set('WWW-Authenticate', 'Basic realm="StreamSync"').status(401).send('Unauthorized');
+  next();
+}
+
 // ─── Express dashboard ────────────────────────────────────────────────────────
 const app = express();
 app.use(express.json());
+app.use(requireAuth);
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Status endpoint
+// Status
 app.get('/api/status', (req, res) => {
   res.json({
     relay: relayStatus,
@@ -157,20 +186,34 @@ app.get('/api/status', (req, res) => {
       color: p.color,
       enabled: p.enabled,
       configured: !!p.key,
+      // never send the actual key to the frontend
     })),
   });
 });
 
-// Toggle a platform on/off at runtime
+// Toggle enabled/disabled
 app.post('/api/platforms/:id/toggle', (req, res) => {
   const { id } = req.params;
   if (!platforms[id]) return res.status(404).json({ error: 'Unknown platform' });
   platforms[id].enabled = !platforms[id].enabled;
+  saveRuntimeConfig();
   log(`${platforms[id].name} ${platforms[id].enabled ? 'enabled' : 'disabled'}`);
   res.json({ id, enabled: platforms[id].enabled });
 });
 
-// Force-stop relay (emergency)
+// Update stream key
+app.post('/api/platforms/:id/key', (req, res) => {
+  const { id } = req.params;
+  const { key } = req.body;
+  if (!platforms[id]) return res.status(404).json({ error: 'Unknown platform' });
+  if (typeof key !== 'string') return res.status(400).json({ error: 'key must be a string' });
+  platforms[id].key = key.trim();
+  saveRuntimeConfig();
+  log(`${platforms[id].name} stream key updated`);
+  res.json({ id, configured: !!platforms[id].key });
+});
+
+// Force-stop relay
 app.post('/api/relay/stop', (req, res) => {
   stopRelay();
   res.json({ ok: true });
@@ -179,4 +222,5 @@ app.post('/api/relay/stop', (req, res) => {
 const DASHBOARD_PORT = parseInt(process.env.DASHBOARD_PORT || '3001');
 app.listen(DASHBOARD_PORT, () => {
   log(`Dashboard at http://localhost:${DASHBOARD_PORT}`);
+  if (!DASHBOARD_PASSWORD) log('WARNING: No DASHBOARD_PASSWORD set — dashboard is unprotected');
 });
