@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const chatBridge = require('./chat-bridge');
 
 // ─── Persist runtime config (keys + enabled state) ───────────────────────────
 const CONFIG_FILE = path.join(__dirname, 'runtime-config.json');
@@ -56,6 +57,13 @@ const platforms = {
     rtmpUrl: process.env.TIKTOK_RTMP_URL || 'rtmp://rtmp-push.tiktok.com/live',
     key:     saved.tiktok?.key     ?? process.env.TIKTOK_STREAM_KEY ?? '',
     enabled: saved.tiktok?.enabled ?? process.env.TIKTOK_ENABLED !== 'false',
+  },
+  kick: {
+    name: 'Kick',
+    color: '#53FC18',
+    rtmpUrl: process.env.KICK_RTMP_URL || 'rtmp://fa723fc1b171.global-contribute.live-video.net/app',
+    key:     saved.kick?.key     ?? process.env.KICK_STREAM_KEY ?? '',
+    enabled: saved.kick?.enabled ?? process.env.KICK_ENABLED !== 'false',
   },
 };
 
@@ -147,11 +155,13 @@ nms.on('postPublish', (id, streamPath) => {
   const streamName = streamPath.split('/').pop();
   log(`Stream connected: ${streamPath}`);
   startRelay(streamName);
+  chatBridge.start(log);
 });
 
 nms.on('donePublish', (id, streamPath) => {
   log(`Stream disconnected: ${streamPath}`);
   stopRelay();
+  chatBridge.stop(log);
 });
 
 nms.run();
@@ -216,8 +226,12 @@ app.post('/api/platforms/:id/key', (req, res) => {
 // Force-stop relay
 app.post('/api/relay/stop', (req, res) => {
   stopRelay();
+  chatBridge.stop(log);
   res.json({ ok: true });
 });
+
+// Unified chat SSE stream
+app.get('/api/chat', chatBridge.sseHandler);
 
 const DASHBOARD_PORT = parseInt(process.env.DASHBOARD_PORT || '3001');
 app.listen(DASHBOARD_PORT, () => {
