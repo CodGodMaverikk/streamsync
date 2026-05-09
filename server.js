@@ -69,7 +69,9 @@ const platforms = {
 };
 
 // ─── State ───────────────────────────────────────────────────────────────────
-let relayProcess = null;
+// One FFmpeg process per platform — failures are isolated
+const relayProcesses = new Map(); // platformId -> child process
+
 const relayStatus = {
   active: false,
   startedAt: null,
@@ -85,8 +87,42 @@ function log(msg) {
 }
 
 // ─── Relay logic ─────────────────────────────────────────────────────────────
+function spawnRelay(id, platform, inputUrl) {
+  const destUrl = `${platform.rtmpUrl}/${platform.key}`;
+  const isSecure = platform.rtmpUrl.startsWith('rtmps://');
+
+  // For RTMPS (e.g. Kick) add TLS flags
+  const args = ['-i', inputUrl, '-c', 'copy', '-f', 'flv'];
+  if (isSecure) args.push('-rtmp_live', 'live');
+  args.push(destUrl);
+
+  const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  relayProcesses.set(id, proc);
+
+  proc.stderr.on('data', (chunk) => {
+    const line = chunk.toString().trim();
+    if (line && !line.startsWith('frame=')) log(`[${platform.name}] ${line.slice(0, 100)}`);
+  });
+
+  proc.on('close', (code) => {
+    log(`[${platform.name}] FFmpeg exited with code ${code}`);
+    relayProcesses.delete(id);
+    relayStatus.platforms = relayStatus.platforms.filter(p => p !== id);
+    if (relayProcesses.size === 0) {
+      relayStatus.active = false;
+      relayStatus.startedAt = null;
+    }
+  });
+
+  proc.on('error', (err) => {
+    log(`[${platform.name}] FFmpeg error: ${err.message}`);
+    relayProcesses.delete(id);
+    relayStatus.platforms = relayStatus.platforms.filter(p => p !== id);
+  });
+}
+
 function startRelay(streamName) {
-  if (relayProcess) stopRelay();
+  stopRelay();
 
   const active = Object.entries(platforms).filter(([, p]) => p.enabled && p.key);
   if (active.length === 0) {
@@ -98,43 +134,21 @@ function startRelay(streamName) {
   log(`Starting relay for stream: ${streamName}`);
   log(`Targets: ${active.map(([, p]) => p.name).join(', ')}`);
 
-  // No -re flag for live RTMP — that's only for file inputs
-  const args = ['-i', inputUrl];
-  for (const [, p] of active) {
-    args.push('-c', 'copy', '-f', 'flv', `${p.rtmpUrl}/${p.key}`);
-  }
-
-  relayProcess = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
   relayStatus.active = true;
   relayStatus.startedAt = new Date().toISOString();
   relayStatus.platforms = active.map(([id]) => id);
 
-  relayProcess.stderr.on('data', (chunk) => {
-    const line = chunk.toString().trim();
-    if (line && !line.startsWith('frame=')) log(line.slice(0, 120));
-  });
-
-  relayProcess.on('close', (code) => {
-    log(`FFmpeg exited with code ${code}`);
-    relayProcess = null;
-    relayStatus.active = false;
-    relayStatus.startedAt = null;
-    relayStatus.platforms = [];
-  });
-
-  relayProcess.on('error', (err) => {
-    log(`FFmpeg error: ${err.message}`);
-    if (err.code === 'ENOENT') log('ERROR: ffmpeg not found — install it: apt install ffmpeg');
-    relayStatus.active = false;
-  });
+  for (const [id, platform] of active) {
+    spawnRelay(id, platform, inputUrl);
+  }
 }
 
 function stopRelay() {
-  if (relayProcess) {
-    log('Stopping relay');
-    relayProcess.kill('SIGTERM');
-    relayProcess = null;
+  for (const [id, proc] of relayProcesses) {
+    log(`Stopping relay for ${platforms[id]?.name || id}`);
+    proc.kill('SIGTERM');
   }
+  relayProcesses.clear();
   relayStatus.active = false;
   relayStatus.startedAt = null;
   relayStatus.platforms = [];
