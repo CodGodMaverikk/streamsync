@@ -87,39 +87,8 @@ function log(msg) {
 }
 
 // ─── Relay logic ─────────────────────────────────────────────────────────────
-function spawnRelay(id, platform, inputUrl) {
-  const destUrl = `${platform.rtmpUrl}/${platform.key}`;
-  const isSecure = platform.rtmpUrl.startsWith('rtmps://');
-
-  // For RTMPS (e.g. Kick) add TLS flags
-  const args = ['-i', inputUrl, '-c', 'copy', '-f', 'flv'];
-  if (isSecure) args.push('-rtmp_live', 'live');
-  args.push(destUrl);
-
-  const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
-  relayProcesses.set(id, proc);
-
-  proc.stderr.on('data', (chunk) => {
-    const line = chunk.toString().trim();
-    if (line && !line.startsWith('frame=')) log(`[${platform.name}] ${line.slice(0, 100)}`);
-  });
-
-  proc.on('close', (code) => {
-    log(`[${platform.name}] FFmpeg exited with code ${code}`);
-    relayProcesses.delete(id);
-    relayStatus.platforms = relayStatus.platforms.filter(p => p !== id);
-    if (relayProcesses.size === 0) {
-      relayStatus.active = false;
-      relayStatus.startedAt = null;
-    }
-  });
-
-  proc.on('error', (err) => {
-    log(`[${platform.name}] FFmpeg error: ${err.message}`);
-    relayProcesses.delete(id);
-    relayStatus.platforms = relayStatus.platforms.filter(p => p !== id);
-  });
-}
+// Single FFmpeg process, tee muxer — reads the stream ONCE, outputs to all platforms.
+// Per-output ignore_io_errors means one platform failing won't kill the others.
 
 function startRelay(streamName) {
   stopRelay();
@@ -134,24 +103,50 @@ function startRelay(streamName) {
   log(`Starting relay for stream: ${streamName}`);
   log(`Targets: ${active.map(([, p]) => p.name).join(', ')}`);
 
+  // Build tee output: [options]url|[options]url|...
+  const teeOutputs = active.map(([, p]) => {
+    const url = `${p.rtmpUrl}/${p.key}`;
+    return `[f=flv:ignore_io_errors=1]${url}`;
+  }).join('|');
+
+  const args = ['-i', inputUrl, '-c', 'copy', '-f', 'tee', teeOutputs];
+
+  const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  relayProcesses.set('main', proc);
+
   relayStatus.active = true;
   relayStatus.startedAt = new Date().toISOString();
   relayStatus.platforms = active.map(([id]) => id);
 
-  for (const [id, platform] of active) {
-    spawnRelay(id, platform, inputUrl);
-  }
+  proc.stderr.on('data', (chunk) => {
+    const line = chunk.toString().trim();
+    if (line && !line.startsWith('frame=')) log(line.slice(0, 120));
+  });
+
+  proc.on('close', (code) => {
+    log(`FFmpeg exited with code ${code}`);
+    relayProcesses.delete('main');
+    relayStatus.active = false;
+    relayStatus.startedAt = null;
+    relayStatus.platforms = [];
+  });
+
+  proc.on('error', (err) => {
+    log(`FFmpeg error: ${err.message}`);
+    if (err.code === 'ENOENT') log('ERROR: ffmpeg not found — install it: apt install ffmpeg');
+    relayStatus.active = false;
+  });
 }
 
 function stopRelay() {
-  for (const [id, proc] of relayProcesses) {
-    log(`Stopping relay for ${platforms[id]?.name || id}`);
+  for (const [, proc] of relayProcesses) {
     proc.kill('SIGTERM');
   }
   relayProcesses.clear();
   relayStatus.active = false;
   relayStatus.startedAt = null;
   relayStatus.platforms = [];
+  log('Relay stopped');
 }
 
 // ─── Node-Media-Server (RTMP ingest) ─────────────────────────────────────────
