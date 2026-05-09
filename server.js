@@ -28,6 +28,7 @@ function saveRuntimeConfig() {
 
 // ─── Platform registry ───────────────────────────────────────────────────────
 const saved = loadRuntimeConfig();
+const firstRun = Object.keys(saved).length === 0;
 
 const platforms = {
   tweak: {
@@ -163,6 +164,9 @@ nms.on('donePublish', (id, streamPath) => {
   stopRelay();
   chatBridge.stop(log);
 });
+
+// Seed runtime config from env vars on first run so dashboard shows correct state
+if (firstRun) saveRuntimeConfig();
 
 nms.run();
 log(`RTMP ingest listening on port ${process.env.RTMP_PORT || 1935}`);
