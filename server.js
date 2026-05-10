@@ -180,7 +180,7 @@ const nms = new NodeMediaServer({
   rtmp: {
     port: parseInt(process.env.RTMP_PORT || '1935'),
     chunk_size: 60000,
-    gop_cache: true,
+    gop_cache: false,   // disabled — reduces memory pressure and OBS backpressure
     ping: 30,
     ping_timeout: 60,
   },
@@ -222,8 +222,14 @@ function requireAuth(req, res, next) {
 // ─── Express dashboard ────────────────────────────────────────────────────────
 const app = express();
 app.use(express.json());
-app.use(requireAuth);
+
+// Public: static files (dashboard, overlay) + chat SSE — no auth needed
+// so the OBS browser source overlay can connect without credentials
 app.use(express.static(path.join(__dirname, 'public')));
+app.get('/api/chat', chatBridge.sseHandler);
+
+// Everything below requires auth
+app.use(requireAuth);
 
 // Status
 app.get('/api/status', (req, res) => {
@@ -268,9 +274,6 @@ app.post('/api/relay/stop', (req, res) => {
   chatBridge.stop(log);
   res.json({ ok: true });
 });
-
-// Unified chat SSE stream
-app.get('/api/chat', chatBridge.sseHandler);
 
 const DASHBOARD_PORT = parseInt(process.env.DASHBOARD_PORT || '3001');
 app.listen(DASHBOARD_PORT, () => {
