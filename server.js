@@ -110,10 +110,11 @@ function startRelay(streamName, retryDelay = 5000) {
   relayStatus.startedAt = new Date().toISOString();
   relayStatus.platforms = active.map(([id]) => id);
 
-  // Build: ffmpeg -fflags nobuffer -i <input> -c copy -f flv <url1> -c copy -f flv <url2> ...
+  // One input, N outputs. -max_muxing_queue_size limits per-output packet queue so a
+  // slow platform drops its own frames rather than backing up the NMS input and OBS.
   const args = ['-fflags', 'nobuffer', '-i', inputUrl];
   for (const [, p] of active) {
-    args.push('-c', 'copy', '-f', 'flv', `${p.rtmpUrl}/${p.key}`);
+    args.push('-max_muxing_queue_size', '64', '-c', 'copy', '-f', 'flv', `${p.rtmpUrl}/${p.key}`);
   }
 
   relayProc = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
