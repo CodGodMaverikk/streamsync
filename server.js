@@ -223,15 +223,9 @@ function requireAuth(req, res, next) {
 const app = express();
 app.use(express.json());
 
-// Public: static files (dashboard, overlay) + chat SSE — no auth needed
-// so the OBS browser source overlay can connect without credentials
+// Public: static files, status (read-only, no secrets), chat SSE
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/api/chat', chatBridge.sseHandler);
-
-// Everything below requires auth
-app.use(requireAuth);
-
-// Status
 app.get('/api/status', (req, res) => {
   res.json({
     relay: relayStatus,
@@ -245,6 +239,9 @@ app.get('/api/status', (req, res) => {
     })),
   });
 });
+
+// Write endpoints require auth (toggle, key update, relay stop)
+app.use(requireAuth);
 
 // Toggle enabled/disabled
 app.post('/api/platforms/:id/toggle', (req, res) => {
